@@ -1,108 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Password Analyzer</title>
-  <link rel="stylesheet" href="/static/style.css"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Password Analyzer · Local Security Check</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='vendor/zxcvbn.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='password-check.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </head>
 <body>
-  <div class="container">
-    <h1>Password Strength Analyzer</h1>
-    <p class="subtitle">Check your password strength and breach status</p>
+  <main class="container">
+    <div class="eyebrow">LOCAL SECURITY LAB</div>
+    <h1>Password Analyzer</h1>
+    <p class="subtitle">Estimate guessability and check the Pwned Passwords corpus when you choose to analyze.</p>
 
-    <div class="input-wrap">
-      <input type="password" id="password-input" placeholder="Type a password..." autocomplete="off"/>
-      <button id="toggle-btn" onclick="toggleVisibility()">Show</button>
-    </div>
-
-    <div class="score-wrap">
-      <div class="score-bar-bg">
-        <div class="score-bar" id="score-bar"></div>
+    <form id="analyzer-form" autocomplete="off">
+      <label for="password-input">Password to assess</label>
+      <div class="input-wrap">
+        <input type="password" id="password-input" placeholder="Enter a test password" autocomplete="off" maxlength="256" required>
+        <button type="button" id="toggle-btn" aria-label="Show password">Show</button>
       </div>
-      <span class="score-label" id="score-label">—</span>
-    </div>
+      <button class="primary" type="submit" id="analyze-btn">Analyze password</button>
+    </form>
 
-    <div class="results" id="results" style="display:none">
+    <p class="privacy">Strength analysis and SHA-1 hashing run in this browser. The Flask server receives no password. Only a five-character hash prefix is sent directly to Have I Been Pwned after you click Analyze. Use a trusted local copy and a disposable test password for demonstrations.</p>
+    <p id="state" class="state" role="status" aria-live="polite">Ready. No request is made while you type.</p>
+
+    <section id="results" hidden aria-label="Analysis results">
+      <div class="score-wrap">
+        <div class="score-bar-bg" role="progressbar" aria-label="Guessability score" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0" id="score-track">
+          <div class="score-bar" id="score-bar"></div>
+        </div>
+        <span class="score-label" id="score-label">—</span>
+      </div>
       <div class="result-item">
-        <span class="result-label">Crack Time</span>
+        <span class="result-label">Estimated offline guessing time</span>
         <span class="result-val" id="crack-time">—</span>
       </div>
-      <div class="result-item" id="breach-row">
-        <span class="result-label">Breach Status</span>
+      <small class="note">zxcvbn estimate for a specific slow-hash scenario, not a guarantee.</small>
+      <div class="result-item">
+        <span class="result-label">Pwned Passwords lookup</span>
         <span class="result-val" id="breach-msg">—</span>
       </div>
       <div class="feedback" id="feedback"></div>
-    </div>
-  </div>
-
-  <script>
-    const labels = ["Very Weak", "Weak", "Fair", "Strong", "Very Strong"];
-    const colors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#16a34a"];
-    let visible = false;
-    let timer;
-
-    document.getElementById("password-input").addEventListener("input", (e) => {
-      clearTimeout(timer);
-      const val = e.target.value;
-      if (!val) { reset(); return; }
-      timer = setTimeout(() => analyze(val), 400);
-    });
-
-    function toggleVisibility() {
-      const input = document.getElementById("password-input");
-      const btn = document.getElementById("toggle-btn");
-      visible = !visible;
-      input.type = visible ? "text" : "password";
-      btn.textContent = visible ? "Hide" : "Show";
-    }
-
-    async function analyze(password) {
-      const res = await fetch("/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password })
-      });
-      const data = await res.json();
-
-      // Score bar
-      const pct = (data.score / 4) * 100;
-      const bar = document.getElementById("score-bar");
-      bar.style.width = pct + "%";
-      bar.style.background = colors[data.score];
-      document.getElementById("score-label").textContent = labels[data.score];
-      document.getElementById("score-label").style.color = colors[data.score];
-
-      // Crack time
-      document.getElementById("crack-time").textContent = data.crack_time;
-
-      // Breach
-      const breachMsg = document.getElementById("breach-msg");
-      if (data.breached) {
-        breachMsg.textContent = `⚠ Found in ${data.breach_count.toLocaleString()} breaches!`;
-        breachMsg.style.color = "#ef4444";
-      } else {
-        breachMsg.textContent = "✓ Not found in any breach";
-        breachMsg.style.color = "#22c55e";
-      }
-
-      // Feedback
-      const fb = document.getElementById("feedback");
-      if (data.warning || data.feedback.length > 0) {
-        const items = data.warning ? [data.warning, ...data.feedback] : data.feedback;
-        fb.innerHTML = items.map(f => `<div class="fb-item">💡 ${f}</div>`).join("");
-      } else {
-        fb.innerHTML = "";
-      }
-
-      document.getElementById("results").style.display = "block";
-    }
-
-    function reset() {
-      document.getElementById("score-bar").style.width = "0%";
-      document.getElementById("score-label").textContent = "—";
-      document.getElementById("results").style.display = "none";
-    }
-  </script>
+      <p class="note">A match means this exact password hash appears in the corpus. No match does not prove that the password is safe or unique.</p>
+    </section>
+  </main>
 </body>
 </html>

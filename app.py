@@ -1,31 +1,30 @@
-from flask import Flask, render_template, request, jsonify
-from checker import check_strength, check_breach
+"""Serve a browser-only password analyzer on localhost.
+
+No endpoint accepts or processes a password on the Flask server.
+"""
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
-@app.route("/")
+
+@app.after_request
+def privacy_headers(response):
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "connect-src 'self' https://api.pwnedpasswords.com; "
+        "form-action 'none'; frame-ancestors 'none'"
+    )
+    return response
+
+
+@app.get('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
-@app.route("/analyze", methods=["POST"])
-def analyze():
-    data = request.get_json()
-    password = data.get("password", "")
 
-    if not password:
-        return jsonify({"error": "No password provided"}), 400
-
-    strength = check_strength(password)
-    breach = check_breach(password)
-
-    return jsonify({
-        "score": strength["score"],
-        "crack_time": strength["crack_time"],
-        "feedback": strength["feedback"],
-        "warning": strength["warning"],
-        "breached": breach["breached"],
-        "breach_count": breach["count"]
-    })
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=5000, debug=False)
